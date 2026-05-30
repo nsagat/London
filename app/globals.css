@@ -1,0 +1,116 @@
+@import "tailwindcss";
+
+/* ───────────────────────────── London design tokens ─────────────────────────
+   Light, polished enterprise console (Linear / Vercel / HubSpot vibe).
+   ──────────────────────────────────────────────────────────────────────────── */
+@theme {
+  --color-canvas: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f9fafb;
+  --color-border: #e6e8ec;
+  --color-border-strong: #d4d7dd;
+
+  --color-ink: #0b1220;
+  --color-ink-soft: #3a4252;
+  --color-muted: #6b7280;
+  --color-faint: #9aa1ad;
+
+  --color-brand: #6d5efc;
+  --color-brand-soft: #efedff;
+  --color-blue: #2563eb;
+  --color-blue-soft: #eaf1ff;
+  --color-emerald: #059669;
+  --color-emerald-soft: #e7f6ef;
+  --color-amber: #d97706;
+  --color-amber-soft: #fdf2e3;
+  --color-rose: #e11d48;
+  --color-rose-soft: #fdeaef;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+::selection {
+  background: var(--color-brand-soft);
+  color: var(--color-ink);
+}
+
+/* Thin, quiet scrollbars to match the console feel */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #d6d9df;
+  border-radius: 9999px;
+  border: 3px solid var(--color-canvas);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #c2c6cf;
+}
+
+/* Animations for revealing routing / trace / results */
+@keyframes london-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-rise {
+  animation: london-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes london-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+.shimmer {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-surface-muted);
+}
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.65),
+    transparent
+  );
+  animation: london-shimmer 1.4s infinite;
+}
+
+@keyframes london-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+.animate-dot {
+  animation: london-pulse 1.8s ease-in-out infinite;
+}
