@@ -56,23 +56,29 @@ async function main() {
     const { tools } = await client.listTools();
     console.log(ok(`✓ tools: ${tools.map((t) => t.name).join(", ")}`));
 
-    // ── find_live_account_signals ────────────────────────────────────────────
-    console.log(dim("\n→ find_live_account_signals { vertical: 'AI security startups', signals: ['funding'], limit: 5 }"));
+    // ── find_account_signals ─────────────────────────────────────────────────
+    console.log(dim("\n→ find_account_signals { vertical: 'AI security startups', signals: ['funding'], limit: 5 }"));
     const t0 = Date.now();
     const sigRes = callText(
       await client.callTool({
-        name: "find_live_account_signals",
+        name: "find_account_signals",
         arguments: { vertical: "AI security startups", signals: ["funding"], limit: 5 },
       }),
     );
     const ms = Date.now() - t0;
-    if (sigRes.results?.length) {
+    const accounts = sigRes.data?.results ?? [];
+    if (accounts.length) {
       console.log(
-        ok(`✓ ${sigRes.results.length} accounts in ${ms}ms`) +
+        ok(`✓ ${accounts.length} accounts in ${ms}ms`) +
           dim(`  (dataSource=${sigRes.dataSource}, layer=${sigRes.intelligenceLayer})`),
       );
-      for (const r of sigRes.results) {
+      for (const r of accounts) {
         console.log(`   • ${r.company}  ${dim("—")} ${r.signal}  ${dim(r.confidence)}`);
+      }
+      if (sigRes.usage) {
+        console.log(
+          dim(`   usage: ${sigRes.usage.calls} calls, ${sigRes.usage.unitsConsumed} credits, ${sigRes.usage.estimatedCost}, ${sigRes.usage.creditsRemaining} left`),
+        );
       }
       if (sigRes.dataSource !== "live") {
         console.log(bad("  ! dataSource is not 'live' — is BRIGHT_DATA_API_KEY set in .env.local?"));
@@ -93,9 +99,10 @@ async function main() {
         },
       }),
     );
-    if (recRes.recommendedAgents?.length) {
-      console.log(ok(`✓ ${recRes.recommendedAgents.length} agents recommended`));
-      for (const a of recRes.recommendedAgents) {
+    const agents = recRes.data?.recommendedAgents ?? [];
+    if (agents.length) {
+      console.log(ok(`✓ ${agents.length} agents recommended`));
+      for (const a of agents) {
         console.log(`   • ${a.name}  ${dim("—")} ${a.estimatedCost ?? ""}`);
       }
     } else {

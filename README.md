@@ -1,14 +1,18 @@
 # London
 
-**GTM Intelligence control plane for the enterprise — powered by Bright Data.**
+**The unified, agent-native API for Bright Data–powered GTM intelligence.**
 
-> London lets a company register AI agents into its workspace, define policies for
-> what each agent can access, route employee tasks to the right agent, and observe
-> exactly what the agent did. For this MVP, London ships a Bright Data–powered
-> **GTM Intelligence Agent** that turns live web data into account intelligence,
-> outbound angles, and workflow-ready outputs.
+> London is the unified API + MCP layer where any AI agent can **discover, call,
+> and meter** a catalog of GTM intelligence tools — account discovery, buying-
+> signal detection, account enrichment, competitor monitoring, and GTM stack
+> recommendations — all backed by live Bright Data, with **no Bright Data setup
+> on the consumer's side**. London holds the credentials and runs the governed
+> pipeline; agents just call a tool and pay per call.
 
-Tagline: _Governed agent integration for enterprise workspaces._
+Tagline: _Unlock the live web for revenue teams — one API, any agent._
+
+One endpoint (`/api/agent`), a discoverable tool catalog (`/api/tools`), and an
+MCP server that exposes the same tools to Claude, Cursor, or VS Code.
 
 ---
 
@@ -188,11 +192,40 @@ No secrets are committed; keys are read from the environment only.
 
 ## API
 
+### Tool catalog (the agent-native surface)
+
+London exposes a **catalog** of GTM intelligence tools any agent can discover,
+call, and meter — like an agent-native API platform, but vertical to GTM and
+backed by Bright Data.
+
+```bash
+curl -s localhost:3000/api/tools | jq          # discover the catalog + usage
+curl -s localhost:3000/api/tools/enrich_account \
+  -H 'content-type: application/json' -d '{"company":"Cyberhaven"}' | jq
+curl -s localhost:3000/api/usage | jq          # pay-as-you-go usage snapshot
+```
+
+| Tool | Category | Bright Data | Cost |
+| ---- | -------- | ----------- | ---- |
+| `discover_companies` | Prospecting | SERP, Web Unlocker | 3 |
+| `find_account_signals` | Buying Signals | SERP, Web Unlocker, Web Scraper | 5 |
+| `enrich_account` | Data Enrichment | SERP, Web Unlocker | 4 |
+| `monitor_competitor` | Competitive Intel | SERP, Web Unlocker, Scraping Browser | 4 |
+| `recommend_gtm_stack` | GTM Strategy | SERP, Web Unlocker | 2 |
+
+- `GET /api/tools` — discover the catalog (schemas, Bright Data products, costs) + usage.
+- `POST /api/tools/{tool_id}` — invoke a tool; returns `{ tool, dataSource, data, cost, usage }`.
+- `GET /api/usage` — pay-as-you-go meter (`calls`, `unitsConsumed`, `estimatedCost`,
+  `creditsRemaining`, `byTool`). In-memory MVP meter; every call is metered.
+
+The **same catalog** is exposed over MCP (see [`mcp/`](mcp/README.md)), so Claude /
+Cursor / VS Code get the identical tools.
+
 ### Unified endpoint (one call for everything)
 
 `POST /api/agent` takes a single natural-language `input`, auto-detects intent,
-runs the right agent capability, and returns one envelope. This is the surface a
-frontend (or an MCP host) talks to when it doesn't want to pick an endpoint.
+runs the right agent capability, and returns one envelope (including `usage`).
+This is the surface for a frontend or an MCP host that wants a single entry.
 
 ```bash
 curl -s localhost:3000/api/agent -H 'content-type: application/json' \

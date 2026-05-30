@@ -1,5 +1,8 @@
 import { routeEnterpriseTask } from "./agent-router";
 import { recommendGtmStack } from "./recommend";
+import { meter } from "./metering";
+import { getTool } from "./catalog";
+import type { Usage } from "./metering";
 import type {
   RecommendStackResponse,
   RouteTaskResponse,
@@ -39,6 +42,8 @@ export interface LondonResponse {
   dataSource: "live" | "demo";
   /** The full typed payload from the underlying capability. */
   data: RouteTaskResponse | RecommendStackResponse;
+  /** Pay-as-you-go usage snapshot after this call. */
+  usage: Usage;
 }
 
 // Signals that the input is a company/goals description asking for a team,
@@ -90,6 +95,7 @@ export async function runLondon(req: LondonInput): Promise<LondonResponse> {
       liveMode: data.liveMode,
       dataSource: data.dataSource,
       data,
+      usage: meter("recommend_gtm_stack", costOf("recommend_gtm_stack")),
     };
   }
 
@@ -105,5 +111,10 @@ export async function runLondon(req: LondonInput): Promise<LondonResponse> {
     liveMode: data.liveMode,
     dataSource: data.dataSource,
     data,
+    usage: meter("find_account_signals", costOf("find_account_signals")),
   };
+}
+
+function costOf(toolId: string): number {
+  return getTool(toolId)?.unitCost ?? 1;
 }

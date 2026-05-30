@@ -65,10 +65,20 @@ live Bright Data results back.
 
 ## Tools exposed
 
-| Tool | Purpose |
-| ---- | ------- |
-| `find_live_account_signals` | Discover accounts + live buying signals (hiring/funding/launch/partnership) with evidence, confidence, outbound angle, source, and tool trace. |
-| `recommend_gtm_stack` | Turn a company/goals/budget description into a recommended GTM agent stack. |
+The MCP server exposes the **same GTM intelligence catalog** as the HTTP API
+([`lib/catalog.ts`](../lib/catalog.ts)), so Claude / Cursor / VS Code get the
+identical tools. Every call is metered (usage is returned in each response).
+
+| Tool | Purpose | Cost |
+| ---- | ------- | ---- |
+| `discover_companies` | Find companies matching a target profile from the live web. | 3 |
+| `find_account_signals` | Accounts + buying signals (hiring/funding/launch/partnership) with evidence, confidence, outbound angle, source, trace. | 5 |
+| `enrich_account` | Deep-enrich a single company from the live web. | 4 |
+| `monitor_competitor` | Track a competitor's recent pricing/hiring/launch/partnership moves. | 4 |
+| `recommend_gtm_stack` | Turn a company/goals/budget description into a recommended GTM agent stack. | 2 |
+
+Try: *"Use london to enrich the account Cyberhaven"* or *"Use london to monitor
+competitor Datadog."*
 
 ---
 

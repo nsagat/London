@@ -20,8 +20,16 @@ interface Entry<T> {
 
 const DEFAULT_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
-const store = new Map<string, Entry<unknown>>();
-const lastGood = new Map<string, unknown>();
+// Back the cache with globalThis so it's shared across Next.js route bundles and
+// the boot-time warmup context (each is otherwise an isolated module instance).
+interface CacheState {
+  store: Map<string, Entry<unknown>>;
+  lastGood: Map<string, unknown>;
+}
+const g = globalThis as unknown as { __londonCache?: CacheState };
+const cacheState: CacheState =
+  g.__londonCache ?? (g.__londonCache = { store: new Map(), lastGood: new Map() });
+const { store, lastGood } = cacheState;
 
 export function normalizeKey(s: string): string {
   return s.toLowerCase().replace(/\s+/g, " ").trim();

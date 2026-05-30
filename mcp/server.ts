@@ -42,118 +42,45 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-import { runBrightDataPipeline, isLive } from "../lib/brightdata";
-import { recommendGtmStack } from "../lib/recommend";
+import { isLive } from "../lib/brightdata";
 import { closeMcp } from "../lib/brightdata-mcp";
+import { CATALOG, getTool } from "../lib/catalog";
+import { meter } from "../lib/metering";
 
 const server = new Server(
   { name: "london-gtm-intelligence", version: "0.1.0" },
   { capabilities: { tools: {} } },
 );
 
-// ── Tool definitions ─────────────────────────────────────────────────────────
+// ── Tools come straight from the GTM catalog, so the MCP surface and the HTTP
+// API expose exactly the same tools. ──────────────────────────────────────────
 
-const TOOLS = [
-  {
-    name: "find_live_account_signals",
-    description:
-      "Discover high-fit accounts and live buying signals (hiring, funding, product launches, partnerships) from the open web using Bright Data. Returns ranked companies with evidence, confidence, an outbound angle, and the source URL — plus the tool execution trace.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        vertical: {
-          type: "string",
-          description:
-            "Target market / segment, e.g. 'AI security startups' or 'fintech companies'.",
-        },
-        signals: {
-          type: "array",
-          items: {
-            type: "string",
-            enum: ["hiring", "funding", "product_launch", "partnership"],
-          },
-          description: "Which buying signals to surface (optional).",
-        },
-        location: {
-          type: "string",
-          description: "Optional geography filter, e.g. 'US' or 'Europe'.",
-        },
-        limit: {
-          type: "number",
-          description: "Max accounts to return (default 10).",
-        },
-      },
-      required: ["vertical"],
-    },
-  },
-  {
-    name: "recommend_gtm_stack",
-    description:
-      "Given a company description (type, target market, goal, budget), recommend a budget-aware stack of GTM agents with an evaluation trace and summary metrics.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        companyPrompt: {
-          type: "string",
-          description:
-            "Free-text description of the company, goals, target market, and budget.",
-        },
-      },
-      required: ["companyPrompt"],
-    },
-  },
-] as const;
-
-server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
+server.setRequestHandler(ListToolsRequestSchema, async () => ({
+  tools: CATALOG.map((t) => ({
+    name: t.id,
+    description: `${t.description} [${t.category}; Bright Data: ${t.brightDataTools.join(", ")}; cost: ${t.unitCost} credits]`,
+    inputSchema: t.inputSchema,
+  })),
+}));
 
 // ── Tool execution ───────────────────────────────────────────────────────────
 
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   const { name, arguments: args = {} } = req.params;
+  const tool = getTool(name);
+  if (!tool) return errorResult(`Unknown tool: ${name}`);
 
   try {
-    if (name === "find_live_account_signals") {
-      const vertical = String((args as Record<string, unknown>).vertical ?? "").trim();
-      if (!vertical) {
-        return errorResult("`vertical` is required.");
-      }
-      const signals = Array.isArray((args as Record<string, unknown>).signals)
-        ? ((args as Record<string, unknown>).signals as string[])
-        : [];
-      const limit = Number((args as Record<string, unknown>).limit) || 10;
-      const location = String((args as Record<string, unknown>).location ?? "").trim();
-
-      const signalPhrase = signals.length
-        ? ` with recent ${signals.join(", ").replace(/_/g, " ")} signals`
-        : " with recent hiring or funding signals";
-      const task = `Find ${vertical}${location ? ` in ${location}` : ""}${signalPhrase} and suggest outbound angles.`;
-
-      const pipeline = await runBrightDataPipeline(task);
-      const results = pipeline.results.slice(0, limit);
-
-      return jsonResult({
-        dataSource: pipeline.liveMode ? "live" : "demo",
-        intelligenceLayer: pipeline.intelligenceLayer,
-        query: task,
-        results,
-        trace: pipeline.trace,
-      });
-    }
-
-    if (name === "recommend_gtm_stack") {
-      const companyPrompt = String(
-        (args as Record<string, unknown>).companyPrompt ?? "",
-      ).trim();
-      if (!companyPrompt) {
-        return errorResult("`companyPrompt` is required.");
-      }
-      const rec = await recommendGtmStack({ companyPrompt });
-      return jsonResult(rec);
-    }
-
-    return errorResult(`Unknown tool: ${name}`);
+    const result = await tool.handler(args as Record<string, unknown>);
+    const usage = meter(tool.id, tool.unitCost);
+    return jsonResult({
+      tool: tool.id,
+      ...result,
+      cost: { credits: tool.unitCost },
+      usage,
+    });
   } catch (err) {
-    return errorResult(`Tool failed: ${(err as Error).message}`);
+    return errorResult(`Tool '${tool.id}' failed: ${(err as Error).message}`);
   }
 });
 
