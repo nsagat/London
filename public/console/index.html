@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>London · GTM Intelligence Platform</title>
+<link rel="icon" type="image/png" href="/console/assets/ember-mascot.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/console/styles.css"/>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- mascot source used by shell.jsx -->
+<script>window.MASCOT_SRC = "/console/assets/ember-mascot.png";</script>
+
+<!-- React + Babel (in-browser transform, same as the original design) -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+<!-- Design source (absolute /console paths so they resolve regardless of trailing slash) -->
+<script type="text/babel" src="/console/icons.jsx"></script>
+<script type="text/babel" src="/console/data.jsx"></script>
+<!-- live API layer: overrides window.LondonData with real Bright Data when reachable -->
+<script type="text/babel" src="/console/live.jsx"></script>
+<script type="text/babel" src="/console/primitives.jsx"></script>
+<script type="text/babel" src="/console/shell.jsx"></script>
+<script type="text/babel" src="/console/workspace.jsx"></script>
+<script type="text/babel" src="/console/home.jsx"></script>
+<script type="text/babel" src="/console/builder.jsx"></script>
+<script type="text/babel" src="/console/marketplace.jsx"></script>
+<script type="text/babel" src="/console/analytics.jsx"></script>
+<script type="text/babel" src="/console/integrations.jsx"></script>
+<script type="text/babel" src="/console/governance.jsx"></script>
+<script type="text/babel" src="/console/accesscontrol.jsx"></script>
+<script type="text/babel" src="/console/account.jsx"></script>
+<script type="text/babel" src="/console/app.jsx"></script>
+</body>
+</html>
