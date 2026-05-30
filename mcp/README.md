@@ -19,7 +19,30 @@ npm run mcp          # = tsx mcp/server.ts  (stdio MCP server)
 It reads `BRIGHT_DATA_API_KEY` from `.env.local` automatically (or from the env
 your MCP host injects). With no key it serves realistic demo data.
 
-## Connect it to an MCP host
+## Hosted remote MCP (one URL, any agent)
+
+The deployed app exposes a **remote MCP endpoint** over Streamable HTTP at
+**`/api/mcp`** ([app/api/mcp/route.ts](../app/api/mcp/route.ts)) — so any agent
+integrates London with a single URL, no local setup:
+
+```bash
+# Claude Code
+claude mcp add --transport http london https://<your-app>.up.railway.app/api/mcp
+
+# Cursor / other hosts: add a remote MCP server with that URL
+```
+
+Quick check (raw JSON-RPC):
+
+```bash
+curl -s https://<your-app>.up.railway.app/api/mcp \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | jq
+```
+
+The hosted endpoint and the local stdio server below expose the **same catalog**.
+
+## Connect the local stdio server to an MCP host
 
 Use the project's local `tsx` binary so there's no PATH/`npx` resolution issue.
 
