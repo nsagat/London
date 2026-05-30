@@ -1,19 +1,74 @@
-# London — MCP Surface
+# London — MCP Server
 
-London's routing and intelligence engine is designed to be exposed over the
-**Model Context Protocol (MCP)** so that Claude, Cursor, Slack copilots, or any
-internal enterprise tool can call London's GTM Intelligence Agent directly — with
-the same governance, policy enforcement, and Bright Data backbone used by the
-dashboard.
-
-This directory documents the planned MCP tool. The backing logic already exists
-in [`/lib/agent-router.ts`](../lib/agent-router.ts) and
-[`/lib/brightdata.ts`](../lib/brightdata.ts); wrapping it in an MCP server is a
-thin adapter.
+London's GTM Intelligence engine is exposed over the **Model Context Protocol
+(MCP)** so Claude Desktop, Claude Code, Cursor, or VS Code (Cline/Continue) can
+call it directly — running the same governed, Bright Data–powered pipeline used
+by the web app. The server lives at [`mcp/server.ts`](./server.ts).
 
 > London is also an MCP **client**: it connects to Bright Data's official MCP
 > server (`@brightdata/mcp`) to run `search_engine` / `scrape_as_markdown`. See
-> [`/lib/brightdata-mcp.ts`](../lib/brightdata-mcp.ts).
+> [`/lib/brightdata-mcp.ts`](../lib/brightdata-mcp.ts). So London is both an MCP
+> server (to your editor) and an MCP client (to Bright Data).
+
+## Run it
+
+```bash
+npm run mcp          # = tsx mcp/server.ts  (stdio MCP server)
+```
+
+It reads `BRIGHT_DATA_API_KEY` from `.env.local` automatically (or from the env
+your MCP host injects). With no key it serves realistic demo data.
+
+## Connect it to an MCP host
+
+Use the project's local `tsx` binary so there's no PATH/`npx` resolution issue.
+
+**Claude Code (CLI):**
+
+```bash
+claude mcp add london \
+  /Users/nilufer/Documents/London/node_modules/.bin/tsx \
+  /Users/nilufer/Documents/London/mcp/server.ts
+```
+
+**Claude Desktop** — edit
+`~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "london": {
+      "command": "/Users/nilufer/Documents/London/node_modules/.bin/tsx",
+      "args": ["/Users/nilufer/Documents/London/mcp/server.ts"]
+    }
+  }
+}
+```
+
+**VS Code** — create `.vscode/mcp.json` in any workspace (or add to Cline/Cursor
+MCP settings):
+
+```json
+{
+  "servers": {
+    "london": {
+      "command": "/Users/nilufer/Documents/London/node_modules/.bin/tsx",
+      "args": ["/Users/nilufer/Documents/London/mcp/server.ts"]
+    }
+  }
+}
+```
+
+Restart the host, then ask: *"Use london to find AI security startups with recent
+funding signals."* The assistant will call `find_live_account_signals` and get
+live Bright Data results back.
+
+## Tools exposed
+
+| Tool | Purpose |
+| ---- | ------- |
+| `find_live_account_signals` | Discover accounts + live buying signals (hiring/funding/launch/partnership) with evidence, confidence, outbound angle, source, and tool trace. |
+| `recommend_gtm_stack` | Turn a company/goals/budget description into a recommended GTM agent stack. |
 
 ---
 
