@@ -158,6 +158,22 @@ npm run dev
 
 The app runs with **zero credentials** (mock/demo data).
 
+### Deploy
+
+London is a **stateful, long-running service** (it spawns the Bright Data MCP
+server and keeps an in-memory cache + meter), so deploy it on a **persistent
+container — Railway / Render / Fly.io, not serverless (Vercel won't work)**. See
+[`DEPLOY.md`](DEPLOY.md) for step-by-step Railway instructions. TL;DR:
+
+```bash
+npm i -g @railway/cli && railway login
+railway init && railway up
+railway variables --set BRIGHT_DATA_API_KEY=<your-token> && railway up
+# then: Settings → Networking → Generate Domain
+```
+
+Health check: `GET /api/health`.
+
 ### Go live with Bright Data
 
 The live path runs through the **Bright Data MCP server**, which needs only your
