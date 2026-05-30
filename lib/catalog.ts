@@ -6,6 +6,13 @@ import {
 } from "./brightdata";
 import { runExtraction } from "./ai-intelligence";
 import { recommendGtmStack } from "./recommend";
+import {
+  createWatch,
+  scanWatchById,
+  getWatch,
+  serializeWatch,
+  type WatchType,
+} from "./watch";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // London GTM Intelligence tool catalog.
@@ -237,6 +244,88 @@ export const CATALOG: GtmTool[] = [
         intelligenceLayer: rec.intelligenceLayer,
         trace: rec.trace,
         data: rec,
+      };
+    },
+  },
+  {
+    id: "create_watch",
+    name: "Create Watch",
+    category: "Always-on Monitoring",
+    description:
+      "Start continuously monitoring a competitor or a market vertical. London re-scans on an interval and detects NEW signals over time. Returns the watch id and the seeded baseline.",
+    brightDataTools: ["SERP API", "Web Unlocker"],
+    unitCost: 2,
+    inputSchema: {
+      type: "object",
+      properties: {
+        type: {
+          type: "string",
+          enum: ["competitor", "vertical"],
+          description: "Monitor a specific company ('competitor') or a market ('vertical').",
+        },
+        target: {
+          type: "string",
+          description: "Company name (competitor) or market phrase (vertical).",
+        },
+        intervalMinutes: {
+          type: "number",
+          description: "Re-scan interval in minutes (min 2, default 30).",
+        },
+      },
+      required: ["type", "target"],
+    },
+    async handler(args) {
+      const type = str(args.type) as WatchType;
+      if (type !== "competitor" && type !== "vertical") {
+        throw new Error("type must be 'competitor' or 'vertical'");
+      }
+      const target = str(args.target);
+      if (!target) throw new Error("target is required");
+      const watch = await createWatch({
+        type,
+        target,
+        intervalMinutes: num(args.intervalMinutes, 30),
+      });
+      return {
+        dataSource: source(),
+        intelligenceLayer: "heuristic",
+        data: { watchId: watch.id, ...serializeWatch(watch) },
+      };
+    },
+  },
+  {
+    id: "check_watch",
+    name: "Check Watch",
+    category: "Always-on Monitoring",
+    description:
+      "Re-scan a watch now and return any NEW signals detected since the last scan, plus the current monitored state.",
+    brightDataTools: ["SERP API", "Web Unlocker"],
+    unitCost: 3,
+    inputSchema: {
+      type: "object",
+      properties: {
+        watchId: { type: "string", description: "The watch id to check." },
+        scan: {
+          type: "boolean",
+          description: "Re-scan before returning (default true).",
+        },
+      },
+      required: ["watchId"],
+    },
+    async handler(args) {
+      const watchId = str(args.watchId);
+      const doScan = args.scan !== false;
+      const newEvents = doScan ? ((await scanWatchById(watchId)) ?? []) : [];
+      const watch = getWatch(watchId);
+      if (!watch) throw new Error("watch not found");
+      return {
+        dataSource: source(),
+        intelligenceLayer: "heuristic",
+        data: {
+          newSignals: newEvents.map((e) => e.item),
+          newCount: newEvents.length,
+          ...serializeWatch(watch),
+        },
       };
     },
   },

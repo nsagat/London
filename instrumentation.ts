@@ -8,5 +8,8 @@ export async function register() {
     warmupBrightData().catch(() => {
       /* warmup is best-effort; the app works cold too */
     });
+    // Start the always-on watch scheduler (re-scans due watches each minute).
+    const { startWatchScheduler } = await import("./lib/watch");
+    startWatchScheduler();
   }
 }

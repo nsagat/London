@@ -194,6 +194,7 @@ export async function fetchCompanyPages(
  */
 export async function runBrightDataPipeline(
   task: string,
+  opts: { bypassCache?: boolean } = {},
 ): Promise<BrightDataPipelineOutput> {
   if (!isLive()) {
     return {
@@ -205,9 +206,12 @@ export async function runBrightDataPipeline(
   }
 
   // Fast path: a recent identical query is served from cache instantly.
+  // Watch scans bypass this so change detection sees fresh live data each run.
   const cacheKey = `gtm:${normalizeKey(task)}`;
-  const cached = getCached<BrightDataPipelineOutput>(cacheKey);
-  if (cached) return cached;
+  if (!opts.bypassCache) {
+    const cached = getCached<BrightDataPipelineOutput>(cacheKey);
+    if (cached) return cached;
+  }
 
   const trace: TraceStep[] = [];
 
