@@ -147,15 +147,47 @@ No secrets are committed; keys are read from the environment only.
 
 ## API
 
+### Unified endpoint (one call for everything)
+
+`POST /api/agent` takes a single natural-language `input`, auto-detects intent,
+runs the right agent capability, and returns one envelope. This is the surface a
+frontend (or an MCP host) talks to when it doesn't want to pick an endpoint.
+
+```bash
+curl -s localhost:3000/api/agent -H 'content-type: application/json' \
+  -d '{"input":"Find AI security startups with recent funding signals"}' | jq
+```
+
+Request: `{ input, workspace?, department?, mode? }`
+(`mode` = `auto` | `route_task` | `recommend_stack`, default `auto`).
+
+Response envelope:
+
+```json
+{
+  "kind": "route_task" | "recommend_stack",
+  "intent": "…why this capability was chosen…",
+  "workspace": "Acme Corp",
+  "liveMode": true,
+  "dataSource": "live",
+  "data": { /* full route_task or recommend_stack payload */ }
+}
+```
+
+| Example input | Auto-detected `kind` | What runs |
+| ------------- | -------------------- | --------- |
+| "Find AI security startups with recent funding" | `route_task` | GTM Intelligence Agent (live Bright Data) |
+| "Automate refund tickets and cut response time" | `route_task` | Customer Support Agent Team |
+| "We're a B2B security startup, $2k/mo for pipeline" | `recommend_stack` | Recommended GTM agent team |
+
+`GET /api/agent` self-describes the available capabilities.
+
+### Direct endpoints (still available)
+
 - `POST /api/route-task` — `{ workspace, task, department }` → routing decision,
   trace, results, metrics, `liveMode`.
 - `POST /api/recommend-stack` — `{ companyPrompt }` → company context, recommended
   agent stack, evaluation trace, summary metrics, live signal preview.
-
-```bash
-curl -s localhost:3000/api/route-task -H 'content-type: application/json' \
-  -d '{"task":"Find 10 AI security startups with recent funding signals"}' | jq
-```
 
 ---
 
