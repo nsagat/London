@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [{ source: "/console", destination: "/console/index.html" }];
   },
+  // The deployed product opens on the human console.
+  async redirects() {
+    return [{ source: "/", destination: "/console", permanent: false }];
+  },
 };
 
 export default nextConfig;

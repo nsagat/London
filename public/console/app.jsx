@@ -5,6 +5,15 @@ function App() {
   const [page, setPage] = useStateA("workspace");
   const [loading, setLoading] = useStateA(false);
   const [unlocked, setUnlocked] = useStateA(()=> localStorage.getItem("london_unlocked")==="1");
+  const [, setLiveTick] = useStateA(0);
+
+  // Fetch live Bright Data intelligence into window.LondonData, then re-render
+  // so every page picks up the real data. Falls back to mock if unreachable.
+  useEffectA(()=>{
+    if (window.loadLondonLive) {
+      window.loadLondonLive().then(()=> setLiveTick(t=>t+1)).catch(()=>{});
+    }
+  }, []);
 
   const go = (p) => {
     if (p === page) return;
