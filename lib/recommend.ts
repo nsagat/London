@@ -6,6 +6,7 @@ import type {
   TraceStep,
 } from "./types";
 import { discoverLiveAccountSignals, isLive } from "./brightdata";
+import { extractSignals } from "./extractor";
 import { DEMO_ACCOUNT_RESULTS } from "./demo-results";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -144,20 +145,14 @@ export async function recommendGtmStack(
   let liveMode = false;
   if (isLive()) {
     try {
-      const query = `${companyContext.targetMarket} ${companyContext.companyType} hiring OR funding OR launch`;
+      const query = `${companyContext.companyType} ${companyContext.targetMarket} raises funding OR hiring OR launches`;
       const candidates = await discoverLiveAccountSignals(query);
-      if (candidates.length) {
+      const extracted = extractSignals(
+        candidates.map((c) => ({ title: c.title, snippet: c.snippet, url: c.url })),
+      );
+      if (extracted.length) {
         liveMode = true;
-        signalPreview = candidates.slice(0, 3).map((c, i) => ({
-          rank: i + 1,
-          company: c.title.split(/[—–|:-]/)[0].trim().slice(0, 48) || "Unknown",
-          signal: "Live web signal detected",
-          evidence: c.snippet?.slice(0, 140) || "Signal found in live web data.",
-          confidence: 0.85,
-          outboundAngle: "Open with a timely, relevant insight.",
-          source: "Bright Data",
-          url: c.url,
-        }));
+        signalPreview = extracted.slice(0, 3);
       }
     } catch {
       /* fall back to demo preview */

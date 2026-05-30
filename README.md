@@ -115,14 +115,20 @@ The app runs with **zero credentials** (mock/demo data).
 
 ### Go live with Bright Data
 
+The live path runs through the **Bright Data MCP server**, which needs only your
+API token — it provisions everything internally, so there is **no zone setup**.
+
 ```bash
 cp .env.example .env.local
-# edit .env.local and set BRIGHT_DATA_API_KEY (+ your zone names)
+# edit .env.local and set BRIGHT_DATA_API_KEY=<your token>
 npm run dev
 ```
 
 Then on **Home**, run the demo task — results will show a **"LIVE · Bright Data"**
-badge and the response will include `"liveMode": true`.
+badge and the response will include `"liveMode": true`. Under the hood London
+calls the MCP `search_engine` tool (3 parallel signal queries) and
+`scrape_as_markdown` (Web Unlocker) to enrich the top accounts, then extracts
+structured signals, evidence, confidence, and outbound angles.
 
 ### Environment variables
 
