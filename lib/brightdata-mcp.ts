@@ -17,50 +17,98 @@ export function brightDataConfigured(): boolean {
   return Boolean(process.env.BRIGHT_DATA_API_KEY);
 }
 
-let cachedClient: unknown = null;
+interface McpClient {
+  callTool: (args: {
+    name: string;
+    arguments: Record<string, unknown>;
+  }) => Promise<McpTextResult>;
+  listTools: () => Promise<unknown>;
+}
 
-async function getClient(): Promise<unknown | null> {
+let cachedClient: McpClient | null = null;
+// Single-flight: concurrent first requests share one connect (one spawned server).
+let connecting: Promise<McpClient | null> | null = null;
+
+const CONNECT_TIMEOUT_MS = 25_000;
+const SEARCH_TIMEOUT_MS = 15_000;
+const SCRAPE_TIMEOUT_MS = 12_000;
+
+/** Reject if `p` doesn't settle within `ms`. */
+function deadline<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms),
+    ),
+  ]);
+}
+
+async function getClient(): Promise<McpClient | null> {
   if (!brightDataConfigured()) return null;
   if (cachedClient) return cachedClient;
+  if (connecting) return connecting;
 
+  connecting = (async () => {
+    try {
+      // Dynamic imports so a missing SDK never breaks the build/runtime.
+      const { Client } = await import(
+        "@modelcontextprotocol/sdk/client/index.js"
+      );
+      const { StdioClientTransport } = await import(
+        "@modelcontextprotocol/sdk/client/stdio.js"
+      );
+
+      const command = process.env.BRIGHT_DATA_MCP_COMMAND || "npx";
+      const args = (process.env.BRIGHT_DATA_MCP_ARGS || "-y,@brightdata/mcp")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      const transport = new StdioClientTransport({
+        command,
+        args,
+        env: {
+          ...process.env,
+          // Bright Data MCP reads the token from API_TOKEN.
+          API_TOKEN: process.env.BRIGHT_DATA_API_KEY as string,
+        },
+      });
+
+      const client = new Client(
+        { name: "london-control-plane", version: "0.1.0" },
+        { capabilities: {} },
+      );
+      await deadline(client.connect(transport), CONNECT_TIMEOUT_MS, "MCP connect");
+      cachedClient = client as unknown as McpClient;
+      return cachedClient;
+    } catch (err) {
+      console.warn(
+        "[london] Bright Data MCP client unavailable, falling back:",
+        (err as Error).message,
+      );
+      cachedClient = null;
+      return null;
+    } finally {
+      connecting = null;
+    }
+  })();
+
+  return connecting;
+}
+
+/**
+ * Connect (and spawn) the Bright Data MCP server ahead of the first user
+ * request, so the demo's first query isn't paying cold-start. Best-effort.
+ */
+export async function warmupMcp(): Promise<boolean> {
+  if (!brightDataConfigured()) return false;
   try {
-    // Dynamic imports so a missing SDK never breaks the build/runtime.
-    const { Client } = await import(
-      "@modelcontextprotocol/sdk/client/index.js"
-    );
-    const { StdioClientTransport } = await import(
-      "@modelcontextprotocol/sdk/client/stdio.js"
-    );
-
-    const command = process.env.BRIGHT_DATA_MCP_COMMAND || "npx";
-    const args = (process.env.BRIGHT_DATA_MCP_ARGS || "-y,@brightdata/mcp")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    const transport = new StdioClientTransport({
-      command,
-      args,
-      env: {
-        ...process.env,
-        // Bright Data MCP reads the token from API_TOKEN.
-        API_TOKEN: process.env.BRIGHT_DATA_API_KEY as string,
-      },
-    });
-
-    const client = new Client(
-      { name: "london-control-plane", version: "0.1.0" },
-      { capabilities: {} },
-    );
-    await client.connect(transport);
-    cachedClient = client;
-    return client;
-  } catch (err) {
-    console.warn(
-      "[london] Bright Data MCP client unavailable, falling back:",
-      (err as Error).message,
-    );
-    return null;
+    const client = await getClient();
+    if (!client) return false;
+    await deadline(client.listTools(), CONNECT_TIMEOUT_MS, "MCP listTools");
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -75,19 +123,18 @@ interface McpTextResult {
 export async function mcpSearchEngine(
   query: string,
 ): Promise<SerpResult[] | null> {
-  const client = (await getClient()) as {
-    callTool: (args: {
-      name: string;
-      arguments: Record<string, unknown>;
-    }) => Promise<McpTextResult>;
-  } | null;
+  const client = await getClient();
   if (!client) return null;
 
   try {
-    const res = await client.callTool({
-      name: "search_engine",
-      arguments: { query, engine: "google" },
-    });
+    const res = await deadline(
+      client.callTool({
+        name: "search_engine",
+        arguments: { query, engine: "google" },
+      }),
+      SEARCH_TIMEOUT_MS,
+      "MCP search_engine",
+    );
     const text = res.content?.find((c) => c.type === "text")?.text ?? "";
     return parseSearchText(text, query);
   } catch (err) {
@@ -102,19 +149,18 @@ export async function mcpSearchEngine(
 export async function mcpScrapeAsMarkdown(
   url: string,
 ): Promise<string | null> {
-  const client = (await getClient()) as {
-    callTool: (args: {
-      name: string;
-      arguments: Record<string, unknown>;
-    }) => Promise<McpTextResult>;
-  } | null;
+  const client = await getClient();
   if (!client) return null;
 
   try {
-    const res = await client.callTool({
-      name: "scrape_as_markdown",
-      arguments: { url },
-    });
+    const res = await deadline(
+      client.callTool({
+        name: "scrape_as_markdown",
+        arguments: { url },
+      }),
+      SCRAPE_TIMEOUT_MS,
+      "MCP scrape_as_markdown",
+    );
     return res.content?.find((c) => c.type === "text")?.text ?? null;
   } catch (err) {
     console.warn("[london] mcpScrapeAsMarkdown failed:", (err as Error).message);

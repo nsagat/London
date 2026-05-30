@@ -117,6 +117,21 @@ and the execution trace names the model (e.g. `AI/ML API · gpt-4o-mini`).
 Config: `AIMLAPI_API_KEY`, `AIMLAPI_BASE_URL` (default
 `https://api.aimlapi.com/v1`), `AIMLAPI_MODEL` (default `gpt-4o-mini`).
 
+## Demo reliability
+
+Live web is variable, so London is hardened for a smooth on-stage demo:
+
+- **MCP pre-warm** — on server boot (`instrumentation.ts`) London connects the
+  Bright Data MCP server and background-primes the default demo query, so the
+  first request isn't paying cold-start.
+- **Result cache** — identical queries return instantly from an in-memory cache
+  (15-min TTL); the scripted demo prompt is effectively sub-second after warmup.
+- **Last-good fallback** — if a live run flakes (network blip, junk SERP, scrape
+  timeout), London serves the most recent *successful* live result rather than
+  degrading to static mock — so the demo always shows real Bright Data data.
+- **Per-call timeouts + single-flight connect** — no hung MCP calls, and
+  concurrent first requests share one spawned server.
+
 ## How the recommendation / routing flow works
 
 1. An employee describes a task (Home) or a company (Build GTM Team).
