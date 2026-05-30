@@ -44,6 +44,7 @@ import {
 
 import { runBrightDataPipeline, isLive } from "../lib/brightdata";
 import { recommendGtmStack } from "../lib/recommend";
+import { closeMcp } from "../lib/brightdata-mcp";
 
 const server = new Server(
   { name: "london-gtm-intelligence", version: "0.1.0" },
@@ -172,6 +173,15 @@ function errorResult(message: string) {
 }
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
+
+async function shutdown() {
+  await closeMcp(); // close the nested Bright Data MCP child cleanly
+  process.exit(0);
+}
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
+// MCP hosts close the server by ending its stdin.
+process.stdin.on("close", shutdown);
 
 async function main() {
   const transport = new StdioServerTransport();

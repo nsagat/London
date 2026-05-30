@@ -23,6 +23,7 @@ interface McpClient {
     arguments: Record<string, unknown>;
   }) => Promise<McpTextResult>;
   listTools: () => Promise<unknown>;
+  close?: () => Promise<void>;
 }
 
 let cachedClient: McpClient | null = null;
@@ -94,6 +95,20 @@ async function getClient(): Promise<McpClient | null> {
   })();
 
   return connecting;
+}
+
+/**
+ * Gracefully close the nested Bright Data MCP client (and its child process).
+ * Call this on shutdown so the spawned server doesn't crash mid-write (EPIPE).
+ */
+export async function closeMcp(): Promise<void> {
+  const client = cachedClient;
+  cachedClient = null;
+  try {
+    await client?.close?.();
+  } catch {
+    /* ignore */
+  }
 }
 
 /**
