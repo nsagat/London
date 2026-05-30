@@ -106,19 +106,29 @@ export default function PlaygroundPage() {
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-6 px-5 py-6">
-      <div>
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-semibold tracking-tight text-[var(--color-ink)]">
-            London API · Live Playground
-          </h1>
-          <Badge tone="emerald" dot>
-            Live
-          </Badge>
+      <div className="flex items-start gap-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/london.png"
+          alt="London"
+          width={40}
+          height={40}
+          className="mt-0.5 h-10 w-10 shrink-0 object-contain"
+        />
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold tracking-tight text-[var(--color-ink)]">
+              London API · Live Playground
+            </h1>
+            <Badge tone="emerald" dot>
+              Live
+            </Badge>
+          </div>
+          <p className="mt-1 text-sm text-[var(--color-muted)]">
+            Discover the GTM intelligence catalog, connect any agent, and run live
+            Bright Data calls — watch results and usage update in real time.
+          </p>
         </div>
-        <p className="mt-1 text-sm text-[var(--color-muted)]">
-          Discover the GTM intelligence catalog, connect any agent, and run live
-          Bright Data calls — watch results and usage update in real time.
-        </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
