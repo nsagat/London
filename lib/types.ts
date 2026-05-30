@@ -60,7 +60,14 @@ export interface AccountResult {
   outboundAngle: string;
   source: string;
   url?: string;
+  /** AI/ML API–generated 2-sentence intelligence brief (top accounts only). */
+  brief?: string;
+  /** AI/ML API–generated personalized outbound email draft. */
+  outboundEmail?: string;
 }
+
+/** Which engine produced the intelligence: real model vs deterministic rules. */
+export type IntelligenceLayer = "aiml" | "heuristic";
 
 export interface RecommendedAgent {
   name: string;
@@ -105,6 +112,8 @@ export interface RouteTaskResponse {
   liveMode: boolean;
   /** "live" when powered by Bright Data, "demo" for mock fallback. */
   dataSource: "live" | "demo";
+  /** Which engine extracted the signals: AI/ML API model vs heuristics. */
+  intelligenceLayer: IntelligenceLayer;
 }
 
 // ── /api/recommend-stack ────────────────────────────────────────────────────
@@ -137,6 +146,7 @@ export interface RecommendStackResponse {
   signalPreview: AccountResult[];
   liveMode: boolean;
   dataSource: "live" | "demo";
+  intelligenceLayer: IntelligenceLayer;
 }
 
 // ── Bright Data primitives ──────────────────────────────────────────────────
@@ -151,4 +161,5 @@ export interface BrightDataPipelineOutput {
   trace: TraceStep[];
   results: AccountResult[];
   liveMode: boolean;
+  intelligenceLayer: IntelligenceLayer;
 }

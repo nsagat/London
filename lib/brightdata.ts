@@ -14,10 +14,8 @@ import {
   mcpScrapeAsMarkdown,
   mcpSearchEngine,
 } from "./brightdata-mcp";
-import {
-  extractSignals,
-  type ExtractorInput,
-} from "./extractor";
+import { extractSignals, type ExtractorInput } from "./extractor";
+import { runExtraction, enrichWithBriefs } from "./ai-intelligence";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Bright Data backbone.
@@ -190,7 +188,12 @@ export async function runBrightDataPipeline(
   task: string,
 ): Promise<BrightDataPipelineOutput> {
   if (!isLive()) {
-    return { trace: DEMO_GTM_TRACE, results: DEMO_ACCOUNT_RESULTS, liveMode: false };
+    return {
+      trace: DEMO_GTM_TRACE,
+      results: DEMO_ACCOUNT_RESULTS,
+      liveMode: false,
+      intelligenceLayer: "heuristic",
+    };
   }
 
   const trace: TraceStep[] = [];
@@ -235,28 +238,44 @@ export async function runBrightDataPipeline(
     brightData: true,
   });
 
-  // Step 4 — Signal extraction (heuristic), enriched with scraped page text.
+  // Step 4 — Signal extraction. AI/ML API when configured, heuristics otherwise.
+  const t3 = Date.now();
   const enrichedInput = toExtractorInput(candidates).map((c) => ({
     ...c,
     pageText: c.url ? pageMap.get(c.url) : undefined,
   }));
-  const results = extractSignals(enrichedInput).slice(0, MAX_CANDIDATES);
+  const extraction = await runExtraction(enrichedInput, MAX_CANDIDATES);
+  let results = extraction.results;
   trace.push({
     step: 4,
-    tool: "LLM Signal Extractor",
-    purpose: "Extract hiring, funding, launch, and partnership signals",
-    status: "success",
-    latency: "absorb",
+    tool: extraction.toolLabel,
+    purpose: "Reason over live web evidence to extract structured signals",
+    status: results.length ? "success" : "skipped",
+    latency: `${Date.now() - t3}ms`,
     brightData: false,
   });
 
-  // Step 5 — GTM Intelligence Agent ranking.
+  // Step 5 — AI/ML API account briefs + outbound emails (top accounts).
+  if (extraction.layer === "aiml") {
+    const t4 = Date.now();
+    results = await enrichWithBriefs(results, 3);
+    trace.push({
+      step: 5,
+      tool: "AI/ML API · brief generation",
+      purpose: "Summarize top accounts into briefs + personalized outbound",
+      status: "success",
+      latency: `${Date.now() - t4}ms`,
+      brightData: false,
+    });
+  }
+
+  // Final step — GTM Intelligence Agent ranking.
   trace.push({
-    step: 5,
+    step: trace.length + 1,
     tool: "GTM Intelligence Agent",
-    purpose: "Rank accounts and generate outbound angles",
+    purpose: "Rank accounts and finalize the brief",
     status: "success",
-    latency: "612ms",
+    latency: "120ms",
     brightData: false,
   });
 
@@ -264,6 +283,7 @@ export async function runBrightDataPipeline(
     trace,
     results: results.length ? results : DEMO_ACCOUNT_RESULTS,
     liveMode: true,
+    intelligenceLayer: extraction.layer,
   };
 }
 

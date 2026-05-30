@@ -54,6 +54,7 @@ export async function routeEnterpriseTask(
       },
       liveMode: false,
       dataSource: "demo",
+      intelligenceLayer: "heuristic",
     };
   }
 
@@ -94,5 +95,6 @@ export async function routeEnterpriseTask(
     },
     liveMode: pipeline.liveMode,
     dataSource: pipeline.liveMode ? "live" : "demo",
+    intelligenceLayer: pipeline.intelligenceLayer,
   };
 }

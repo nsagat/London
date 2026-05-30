@@ -6,8 +6,9 @@ import type {
   TraceStep,
 } from "./types";
 import { discoverLiveAccountSignals, isLive } from "./brightdata";
-import { extractSignals } from "./extractor";
+import { runExtraction } from "./ai-intelligence";
 import { DEMO_ACCOUNT_RESULTS } from "./demo-results";
+import type { IntelligenceLayer } from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // "Build your AI GTM Team" engine. Parses a free-text company description into a
@@ -143,16 +144,19 @@ export async function recommendGtmStack(
   // Live GTM signal preview — exercises Bright Data discovery for the vertical.
   let signalPreview = DEMO_ACCOUNT_RESULTS.slice(0, 3);
   let liveMode = false;
+  let intelligenceLayer: IntelligenceLayer = "heuristic";
   if (isLive()) {
     try {
       const query = `${companyContext.companyType} ${companyContext.targetMarket} raises funding OR hiring OR launches`;
       const candidates = await discoverLiveAccountSignals(query);
-      const extracted = extractSignals(
+      const extracted = await runExtraction(
         candidates.map((c) => ({ title: c.title, snippet: c.snippet, url: c.url })),
+        3,
       );
-      if (extracted.length) {
+      if (extracted.results.length) {
         liveMode = true;
-        signalPreview = extracted.slice(0, 3);
+        signalPreview = extracted.results.slice(0, 3);
+        intelligenceLayer = extracted.layer;
       }
     } catch {
       /* fall back to demo preview */
@@ -215,5 +219,6 @@ export async function recommendGtmStack(
     signalPreview,
     liveMode,
     dataSource: liveMode ? "live" : "demo",
+    intelligenceLayer,
   };
 }

@@ -91,6 +91,32 @@ maps to a concrete stage in the pipeline (and appears by name in the trace):
 
 ---
 
+## Intelligence layer — AI/ML API
+
+London separates the **data layer** (Bright Data, live web) from the
+**intelligence layer** (AI reasoning over that evidence):
+
+```
+Bright Data  →  live web data (who / what / when)
+AI/ML API    →  reasoning, extraction, summarization (what it means, what to do)
+```
+
+[AI/ML API](https://aimlapi.com) is an OpenAI-compatible gateway to many models.
+When `AIMLAPI_API_KEY` is set, London uses it to:
+
+1. **Extract** structured signals from messy scraped pages + SERP results
+   (real model instead of regex) — `lib/ai-intelligence.ts`.
+2. **Summarize** the top accounts into a 2-sentence brief **and a personalized
+   outbound email**, grounded in the live Bright Data evidence.
+
+It is fully **key-gated with heuristic fallback** — no key (or any error) and
+London uses its deterministic extractor, so the app never depends on it. Every
+response reports which engine ran via `intelligenceLayer: "aiml" | "heuristic"`,
+and the execution trace names the model (e.g. `AI/ML API · gpt-4o-mini`).
+
+Config: `AIMLAPI_API_KEY`, `AIMLAPI_BASE_URL` (default
+`https://api.aimlapi.com/v1`), `AIMLAPI_MODEL` (default `gpt-4o-mini`).
+
 ## How the recommendation / routing flow works
 
 1. An employee describes a task (Home) or a company (Build GTM Team).
