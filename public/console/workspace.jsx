@@ -56,7 +56,103 @@ function buildRec(intent, answers){
   return { intent, answers, agents, cost, blended:+blended.toFixed(1), match, proj };
 }
 
-function RecCard({ rec, onOpen, onCustomize }){
+// ── Autonomous deployment ───────────────────────────────────────────────────
+// London deploys the selected stack straight into the workspace: it flips the
+// chosen agents to "installed" in window.LondonData — so the Command Center,
+// Workforce Catalog, and KPIs all reflect the new live workforce — and persists
+// the choice so it survives navigation and refresh.
+const DEPLOY_KEY = "london_deployed_codes";
+function getDeployedCodes(){ try { return JSON.parse(localStorage.getItem(DEPLOY_KEY) || "[]"); } catch(e){ return []; } }
+function applyDeployedState(){
+  const D = window.LondonData;
+  if(!D || !Array.isArray(D.CATALOG)) return;
+  const set = new Set(getDeployedCodes());
+  if(!set.size) return;
+  D.CATALOG = D.CATALOG.map(a => set.has(a.code) ? { ...a, installed:true } : a);
+  const installed = D.CATALOG.filter(a=>a.installed).length;
+  if(Array.isArray(D.KPIS)){
+    D.KPIS = D.KPIS.map(k => k.key==="agents" ? { ...k, value: installed, suffix:"/"+D.CATALOG.length } : k);
+  }
+}
+function deployTeam(codes){
+  const set = new Set([...getDeployedCodes(), ...codes]);
+  try { localStorage.setItem(DEPLOY_KEY, JSON.stringify([...set])); } catch(e){}
+  applyDeployedState();
+}
+applyDeployedState(); // re-apply previously deployed agents on load
+
+// DeployFlow — the visible, autonomous deployment London runs in-chat when you
+// click "Deploy this team". Each agent is provisioned, connected, policy-checked,
+// and activated; an intelligence agent then goes to work live to prove autonomy.
+function DeployFlow({ agents, onComplete }){
+  const STEPS = ["Provisioning runtime","Connecting tools & data","Validating policy","Activating — live"];
+  const [step, setStep] = useStateW(agents.map(()=>0));
+  const [done, setDone] = useStateW(false);
+  const [liveNote, setLiveNote] = useStateW(null);
+
+  useEffectW(()=>{
+    deployTeam(agents.map(a=>a.code));
+    let cancelled = false;
+    agents.forEach((_, ai)=>{
+      STEPS.forEach((__, si)=>{
+        setTimeout(()=>{ if(!cancelled) setStep(p=>{ const n=p.slice(); n[ai]=si+1; return n; }); }, 450 + ai*700 + si*460);
+      });
+    });
+    const total = 450 + (agents.length-1)*700 + STEPS.length*460 + 350;
+    const t = setTimeout(()=>{ if(!cancelled){ setDone(true); onComplete && onComplete(); } }, total);
+    // best-effort proof of autonomy: an intelligence agent starts working immediately
+    (async ()=>{
+      try{
+        const r = await fetch("/api/tools/find_account_signals", {
+          method:"POST", headers:{"content-type":"application/json"},
+          body:JSON.stringify({ vertical:"AI security startups", signals:["funding","hiring"], limit:6 }),
+        });
+        const d = await r.json();
+        const n = (d && d.data && d.data.results && d.data.results.length) || 0;
+        if(!cancelled && n) setLiveNote({ n, live: d.dataSource === "live" });
+      }catch(e){}
+    })();
+    return ()=>{ cancelled = true; clearTimeout(t); };
+  }, []);
+
+  return (
+    <div className="panel" style={{borderColor:"var(--violet-100)",boxShadow:"var(--shadow-md)",overflow:"hidden",marginTop:4}}>
+      <div className="row gap-2" style={{padding:"13px 16px",background:"linear-gradient(180deg,var(--violet-tint),var(--surface))",borderBottom:"1px solid var(--violet-100)"}}>
+        <span style={{color:"var(--violet)"}}><Icon name={done?"check":"zap"} size={16}/></span>
+        <span style={{fontSize:13.5,fontWeight:600}}>{done ? `${agents.length} agents deployed and running autonomously` : `London is deploying ${agents.length} agents into your workspace…`}</span>
+        <span className="ml-auto">{done ? <Badge tone="green" dot="green">Live</Badge> : <span className="typing"><span></span><span></span><span></span></span>}</span>
+      </div>
+      <div style={{padding:"6px 16px 14px"}}>
+        {agents.map((ag, ai)=>{
+          const s = step[ai];
+          const agentDone = s >= STEPS.length;
+          return (
+            <div key={ag.code} style={{padding:"10px 0",borderBottom: ai<agents.length-1?"1px solid var(--border-faint)":"none"}}>
+              <div className="row gap-2" style={{alignItems:"center"}}>
+                <span style={{width:28,height:28,borderRadius:8,background:ag.color,color:"#fff",display:"grid",placeItems:"center",fontFamily:"var(--mono)",fontSize:10.5,fontWeight:600,flexShrink:0}}>{ag.code}</span>
+                <span style={{fontSize:13,fontWeight:600}}>{ag.name}</span>
+                <span className="ml-auto">{agentDone ? <Badge tone="green" dot="green">Live</Badge> : <span className="mono" style={{fontSize:11,color:"var(--violet)"}}>{STEPS[Math.min(s,STEPS.length-1)]}…</span>}</span>
+              </div>
+              <div className="row" style={{gap:4,marginTop:8}}>
+                {STEPS.map((st, si)=>(
+                  <div key={si} style={{flex:1,height:4,borderRadius:3,background: si<s ? "var(--violet)" : "var(--violet-100)",transition:"background .3s"}}/>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        {liveNote && (
+          <div className="row gap-2" style={{marginTop:12,padding:"10px 12px",background:"var(--green-bg)",borderRadius:"var(--r-md)",fontSize:12.5}}>
+            <span style={{color:"var(--green)",flexShrink:0}}><Icon name="signal" size={14}/></span>
+            <span><strong>Signal Scout</strong> is already working — found <strong>{liveNote.n}</strong> live buying signals{liveNote.live ? " via Bright Data" : ""}.</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RecCard({ rec, onOpen, onCustomize, onDeploy, deployed }){
   const a = rec.agents;
   return (
     <div className="rec-card">
@@ -105,8 +201,10 @@ function RecCard({ rec, onOpen, onCustomize }){
       </div>
 
       <div className="row gap-2" style={{padding:14,borderTop:"1px solid var(--border-faint)"}}>
-        <button className="btn btn-primary" onClick={onCustomize}><Icon name="sliders" size={15}/>Customize in Builder</button>
-        <button className="btn"><Icon name="play" size={15}/>Deploy this team</button>
+        <button className="btn btn-primary" onClick={onDeploy} disabled={deployed}>
+          <Icon name={deployed?"check":"play"} size={15}/>{deployed?"Deployed":"Deploy this team"}
+        </button>
+        <button className="btn" onClick={onCustomize}><Icon name="sliders" size={15}/>Customize in Builder</button>
         <button className="btn btn-ghost ml-auto" onClick={onOpen}><Icon name="home" size={15}/>Open Command Center</button>
       </div>
     </div>
@@ -121,6 +219,7 @@ function WorkspacePage({ go, onUnlock }){
   const [intent, setIntent] = useStateW(null);
   const [input, setInput] = useStateW("");
   const [done, setDone] = useStateW(false);
+  const [deployedKeys, setDeployedKeys] = useStateW([]);
   const scrollRef = useRefW();
   const taRef = useRefW();
 
@@ -172,6 +271,17 @@ function WorkspacePage({ go, onUnlock }){
     }
   };
 
+  const recKey = (rec)=> rec.agents.map(a=>a.code).join(",");
+  const handleDeploy = (rec)=>{
+    const key = recKey(rec);
+    if(deployedKeys.includes(key)) return;
+    setDeployedKeys(k=>[...k, key]);
+    setMessages(m=>[...m,
+      { role:"assistant", kind:"text", text:`On it — deploying your ${rec.agents.length}-agent team into the Acme Inc workspace now. They'll start working the moment they're live.` },
+      { role:"assistant", kind:"deploy", agents: rec.agents },
+    ]);
+  };
+
   const onKey = (e)=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); handleSend(); } };
   const autosize = ()=>{ const t=taRef.current; if(t){ t.style.height="auto"; t.style.height=Math.min(t.scrollHeight,132)+"px"; } };
 
@@ -199,6 +309,19 @@ function WorkspacePage({ go, onUnlock }){
                 </div>
               </div>
             );
+            if(m.kind==="deploy") return (
+              <div key={i} className="msg">
+                <LondonAvatar/>
+                <div className="msg-body" style={{width:"100%"}}>
+                  <div className="msg-name">London</div>
+                  <DeployFlow agents={m.agents} onComplete={scrollDown}/>
+                  <div className="row gap-2" style={{marginTop:10}}>
+                    <button className="btn btn-primary btn-sm" onClick={()=>go("home")}><Icon name="home" size={14}/>Open Command Center</button>
+                    <button className="btn btn-sm" onClick={()=>go("marketplace")}><Icon name="catalog" size={14}/>View Workforce</button>
+                  </div>
+                </div>
+              </div>
+            );
             return (
               <div key={i}>
                 <div className="msg">
@@ -206,7 +329,7 @@ function WorkspacePage({ go, onUnlock }){
                   <div className="msg-body">
                     <div className="msg-name">London</div>
                     {String(m.text).split("\n\n").map((para,pi)=>(<p key={pi}>{para}</p>))}
-                    {m.rec && <RecCard rec={m.rec} onOpen={()=>go("home")} onCustomize={()=>{ window.LONDON_PLAN={codes:m.rec.agents.map(a=>a.code),answers:m.rec.answers,intent:m.rec.intent,match:m.rec.match}; go("builder"); }}/>}
+                    {m.rec && <RecCard rec={m.rec} deployed={deployedKeys.includes(recKey(m.rec))} onDeploy={()=>handleDeploy(m.rec)} onOpen={()=>go("home")} onCustomize={()=>{ window.LONDON_PLAN={codes:m.rec.agents.map(a=>a.code),answers:m.rec.answers,intent:m.rec.intent,match:m.rec.match}; go("builder"); }}/>}
                     {m.chips && step < FLOW.length && i===messages.length-1 && !thinking && (
                       <div className="ws-chips">
                         {m.chips.map(c=>(<button key={c} className="ws-chip" onClick={()=>handleSend(c)}>{c}</button>))}
