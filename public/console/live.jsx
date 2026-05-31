@@ -134,45 +134,30 @@
         );
       }
 
-      // 4) Agent marketplace → CATALOG (real GTM agents) + DEPARTMENTS
+      // 4) Agent marketplace → mark the curated workforce as live where it maps
+      //    to a Bright Data–powered marketplace agent.
+      //
+      //    IMPORTANT: do NOT replace D.CATALOG / D.DEPARTMENTS here. The console's
+      //    Workspace recommendations (workspace.jsx) and the Workforce Catalog
+      //    (marketplace.jsx) are curated views keyed by the fixed agent codes
+      //    defined in data.jsx (PRX, SIG, OUT, CMP, QAL, RNW, MKT, BRF, FCT,
+      //    ENR, ADV, NEG). Overwriting the catalog with API-derived codes makes
+      //    every agentByCode()/CATALOG.find(code) lookup miss, which silently
+      //    empties both the main page and the catalog. We only enrich in place.
       try {
         const mk = await jget("/api/marketplace");
-        const FN = {
-          "Sales Development": "Outbound prospecting & meetings",
-          "Lead Generation": "Lead discovery & enrichment",
-          Intelligence: "Live web signal intelligence",
-          Outbound: "Personalized outbound execution",
-          Sales: "Revenue & deal intelligence",
-          Strategy: "GTM strategy & planning",
-          "Customer Success": "Retention & expansion",
-          "Revenue Operations": "RevOps & pipeline hygiene",
-          Forecasting: "Pipeline & revenue forecasting",
-          "Competitive Intelligence": "Competitive & pricing intel",
-        };
-        const PAL = ["#5B2BD9", "#0E9F6E", "#2563EB", "#D98A0B", "#0E8F9F", "#7B52F0", "#E0353F", "#475569"];
-        const hash = (s) => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; };
-        const code = (n) => n.replace(/[^A-Za-z0-9 ]/g, "").split(" ").filter(Boolean).slice(0, 3).map((w) => w[0]).join("").toUpperCase().slice(0, 3);
-        const flat = [];
+        const liveNames = new Set();
         (mk.categories || []).forEach((c) =>
           (c.agents || []).forEach((a) => {
-            const h = hash(a.name + a.provider);
-            flat.push({
-              name: a.name,
-              dept: a.category,
-              fn: FN[a.category] || a.category,
-              perf: 80 + (h % 19),
-              cost: "$" + (500 + (h % 18) * 100).toLocaleString() + "/mo",
-              color: PAL[h % PAL.length],
-              code: code(a.name),
-              integ: [a.provider],
-              installed: !!a.live,
-              desc: a.name + " — by " + a.provider + (a.live ? ". Powered by Bright Data, running live in London." : ". Available to deploy in your workspace."),
-            });
+            if (a.live) liveNames.add(String(a.name).toLowerCase());
           }),
         );
-        if (flat.length) {
-          D.CATALOG = flat;
-          D.DEPARTMENTS = ["All", ...(mk.categories || []).map((c) => c.category)];
+        if (liveNames.size && Array.isArray(D.CATALOG)) {
+          D.CATALOG = D.CATALOG.map((agent) =>
+            liveNames.has(String(agent.name).toLowerCase())
+              ? { ...agent, installed: true }
+              : agent,
+          );
         }
       } catch (e) {}
     } catch (e) {
