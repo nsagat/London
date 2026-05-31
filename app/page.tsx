@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Users, Star } from "lucide-react";
 import { WorkspaceStats } from "@/components/WorkspaceStats";
+import { LiveAgents } from "@/components/LiveAgents";
 import { AgentsPanel } from "@/components/AgentsPanel";
 import { PolicyPanel } from "@/components/PolicyPanel";
 import { TaskInput } from "@/components/TaskInput";
@@ -62,6 +63,9 @@ export default function HomePage() {
         </div>
 
         <WorkspaceStats />
+
+        {/* Live agents — the runnable workforce from the London API */}
+        <LiveAgents />
 
         {/* Connected agents */}
         <section className="space-y-3">
